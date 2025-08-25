@@ -178,10 +178,9 @@ async function _searchSingleLabel(
       RETURN
         n.id AS id,
         $label AS type,
-        CASE $label
-          WHEN '${NodeLabels.Knowledge}' THEN (CASE WHEN d IS NOT NULL THEN d.name ELSE null END)
-          ELSE n.taskType 
-        END AS entityType,
+        ${actualLabel === NodeLabels.Knowledge 
+          ? '(CASE WHEN d IS NOT NULL THEN d.name ELSE null END)' 
+          : 'n.taskType'} AS entityType,
         COALESCE(n.name, n.title, CASE WHEN n.text IS NOT NULL AND size(toString(n.text)) > 50 THEN left(toString(n.text), 50) + '...' ELSE toString(n.text) END, n.id) AS title,
         COALESCE(n.description, n.text, CASE WHEN '${propertyForLogic}' = 'urls' THEN toString(n.urls) ELSE NULL END) AS description,
         '${propertyForCypher}' AS matchedProperty,
@@ -210,12 +209,13 @@ async function _searchSingleLabel(
           WHEN '${NodeLabels.Project}' THEN n.id
           ELSE n.projectId
         END AS projectId,
-        CASE $label
-          WHEN '${NodeLabels.Project}' THEN n.name
-          WHEN '${NodeLabels.Task}' THEN (CASE WHEN p IS NOT NULL THEN p.name ELSE null END)
-          WHEN '${NodeLabels.Knowledge}' THEN (CASE WHEN k_proj IS NOT NULL THEN k_proj.name ELSE null END)
-          ELSE null
-        END AS projectName,
+        ${actualLabel === NodeLabels.Project 
+          ? 'n.name' 
+          : actualLabel === NodeLabels.Task 
+            ? '(CASE WHEN p IS NOT NULL THEN p.name ELSE null END)'
+            : actualLabel === NodeLabels.Knowledge
+              ? '(CASE WHEN k_proj IS NOT NULL THEN k_proj.name ELSE null END)'
+              : 'null'} AS projectName,
         ${scoringLogic}
     `;
 
@@ -230,16 +230,10 @@ async function _searchSingleLabel(
     }
 
     const finalMatchQueryPart = matchClauses.join("\n        ");
-    let baseWithVariables = ["n"];
-    if (actualLabel === NodeLabels.Task && assignedToUserIdFilter) {
-      baseWithVariables.push("assignee");
-    }
-    baseWithVariables = [...new Set(baseWithVariables)];
 
     const query = `
       ${finalMatchQueryPart}
       ${whereClause}
-      WITH ${baseWithVariables.join(", ")}
       ${optionalMatches}
       ${returnClause}
       ORDER BY score DESC, COALESCE(n.updatedAt, n.createdAt) DESC

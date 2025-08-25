@@ -101,9 +101,9 @@ const EnvSchema = z.object({
   MCP_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000), // 1 minute
   MCP_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(100),
 
-  NEO4J_URI: z.string().default("bolt://localhost:7687"),
+  NEO4J_URI: z.string().default("bolt://127.0.0.1:7687"),
   NEO4J_USER: z.string().default("neo4j"),
-  NEO4J_PASSWORD: z.string().default("password"),
+  NEO4J_PASSWORD: z.string().default("password2"),
 
   BACKUP_FILE_DIR: z.string().default(path.join(projectRoot, "atlas-backups")),
   BACKUP_MAX_COUNT: z.coerce.number().int().min(0).default(10),
@@ -330,22 +330,22 @@ export const config = {
   /** OAuth Proxy configurations. Undefined if no related env vars are set. */
   oauthProxy:
     env.OAUTH_PROXY_AUTHORIZATION_URL ||
-    env.OAUTH_PROXY_TOKEN_URL ||
-    env.OAUTH_PROXY_REVOCATION_URL ||
-    env.OAUTH_PROXY_ISSUER_URL ||
-    env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL ||
-    env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS
+      env.OAUTH_PROXY_TOKEN_URL ||
+      env.OAUTH_PROXY_REVOCATION_URL ||
+      env.OAUTH_PROXY_ISSUER_URL ||
+      env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL ||
+      env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS
       ? {
-          authorizationUrl: env.OAUTH_PROXY_AUTHORIZATION_URL,
-          tokenUrl: env.OAUTH_PROXY_TOKEN_URL,
-          revocationUrl: env.OAUTH_PROXY_REVOCATION_URL,
-          issuerUrl: env.OAUTH_PROXY_ISSUER_URL,
-          serviceDocumentationUrl: env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL,
-          defaultClientRedirectUris:
-            env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS?.split(",")
-              .map((uri) => uri.trim())
-              .filter(Boolean),
-        }
+        authorizationUrl: env.OAUTH_PROXY_AUTHORIZATION_URL,
+        tokenUrl: env.OAUTH_PROXY_TOKEN_URL,
+        revocationUrl: env.OAUTH_PROXY_REVOCATION_URL,
+        issuerUrl: env.OAUTH_PROXY_ISSUER_URL,
+        serviceDocumentationUrl: env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL,
+        defaultClientRedirectUris:
+          env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS?.split(",")
+            .map((uri) => uri.trim())
+            .filter(Boolean),
+      }
       : undefined,
 };
 
