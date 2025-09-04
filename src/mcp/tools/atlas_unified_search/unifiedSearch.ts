@@ -18,6 +18,7 @@ export const atlasUnifiedSearch = async (
   input: unknown,
   context: ToolContext,
 ): Promise<any> => {
+  const startTime = Date.now();
   const reqContext =
     context.requestContext ??
     requestContextService.createRequestContext({
@@ -41,8 +42,33 @@ export const atlasUnifiedSearch = async (
       );
     }
 
+    // Input sanitization
+    const sanitizedValue = validatedInput.value.trim();
+    if (sanitizedValue.length > 1000) {
+      throw new McpError(
+        BaseErrorCode.VALIDATION_ERROR,
+        "Search value is too long (maximum 1000 characters)",
+        { param: "value" },
+      );
+    }
+
+    // Sanitize property name to prevent injection
+    let sanitizedProperty: string | undefined;
+    if (validatedInput.property) {
+      const trimmedProperty = validatedInput.property.trim();
+      // Allow only alphanumeric characters and underscores for property names
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmedProperty)) {
+        throw new McpError(
+          BaseErrorCode.VALIDATION_ERROR,
+          "Property name can only contain letters, numbers, and underscores, and must start with a letter or underscore",
+          { param: "property" },
+        );
+      }
+      sanitizedProperty = trimmedProperty;
+    }
+
     let searchResults: PaginatedResult<SearchResultItem>;
-    const propertyForSearch = validatedInput.property?.trim();
+    const propertyForSearch = sanitizedProperty;
     const entityTypesForSearch = validatedInput.entityTypes || [
       "project",
       "task",
@@ -86,7 +112,7 @@ export const atlasUnifiedSearch = async (
 
       const escapeLucene = (str: string) =>
         str.replace(/([+\-!(){}\[\]^"~*?:\\\/"])/g, "\\$1");
-      let luceneQueryValue = escapeLucene(validatedInput.value);
+      let luceneQueryValue = escapeLucene(sanitizedValue);
 
       // If fuzzy is requested for the tool, apply it to the Lucene query
       if (validatedInput.fuzzy === true) {
@@ -137,8 +163,8 @@ export const atlasUnifiedSearch = async (
       );
 
       searchResults = await SearchService.search({
-        property: propertyForSearch, // Already trimmed
-        value: validatedInput.value,
+        property: propertyForSearch, // Already trimmed and sanitized
+        value: sanitizedValue,
         entityTypes: entityTypesForSearch,
         caseInsensitive: validatedInput.caseInsensitive, // Pass through
         fuzzy: finalFuzzyForRegexPath, // This now correctly defaults to 'true' for "contains"
@@ -165,6 +191,9 @@ export const atlasUnifiedSearch = async (
       ...reqContext,
       resultCount: searchResults.data.length,
       totalResults: searchResults.total,
+      executionTimeMs: Date.now() - startTime,
+      searchPath: shouldUseFullText ? "full-text" : "regex",
+      propertySearched: propertyForSearch || "default",
     });
 
     const responseData: UnifiedSearchResponse = {
@@ -175,11 +204,8 @@ export const atlasUnifiedSearch = async (
       totalPages: searchResults.totalPages,
     };
 
-    if (validatedInput.responseFormat === ResponseFormat.JSON) {
-      return responseData;
-    } else {
-      return formatUnifiedSearchResponse(responseData);
-    }
+    // Always return raw data - formatting will be handled by the tool layer
+    return responseData;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";

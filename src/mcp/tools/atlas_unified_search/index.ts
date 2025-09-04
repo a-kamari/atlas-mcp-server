@@ -33,11 +33,15 @@ export const registerAtlasUnifiedSearchTool = (server: McpServer) => {
         ),
       entityTypes: z
         .array(
-          z.string(), // Allow any string label
+          z.enum(["project", "task", "knowledge"], {
+            errorMap: () => ({
+              message: "Entity type must be one of: 'project', 'task', or 'knowledge'"
+            })
+          })
         )
         .optional()
         .describe(
-          "Array of entity types (node labels) to include in search (Default: project, task, knowledge if omitted)", // Updated description
+          "Array of entity types (node labels) to include in search (Default: project, task, knowledge if omitted)",
         ),
       caseInsensitive: z
         .boolean()
@@ -78,28 +82,42 @@ export const registerAtlasUnifiedSearchTool = (server: McpServer) => {
         ),
     },
     async (input, context) => {
-      // Process unified search request
-      const validatedInput = input as unknown as UnifiedSearchRequestInput & {
-        responseFormat?: ResponseFormat;
-      };
+      try {
+        // Process unified search request
+        const validatedInput = input as unknown as UnifiedSearchRequestInput & {
+          responseFormat?: ResponseFormat;
+        };
 
-      // Provide default entityTypes if not specified
-      const searchInputWithDefaults = {
-        ...validatedInput,
-        entityTypes:
-          validatedInput.entityTypes && validatedInput.entityTypes.length > 0
-            ? validatedInput.entityTypes
-            : ["project", "task", "knowledge"], // Default if empty or undefined
-      };
+        // Provide default entityTypes if not specified
+        const searchInputWithDefaults = {
+          ...validatedInput,
+          entityTypes:
+            validatedInput.entityTypes && validatedInput.entityTypes.length > 0
+              ? validatedInput.entityTypes
+              : ["project", "task", "knowledge"], // Default if empty or undefined
+        };
 
-      const result = await atlasUnifiedSearch(searchInputWithDefaults, context);
+        const result = await atlasUnifiedSearch(searchInputWithDefaults, context);
 
-      // Conditionally format response
-      if (validatedInput.responseFormat === ResponseFormat.JSON) {
-        return createToolResponse(JSON.stringify(result, null, 2));
-      } else {
-        // Return the result using the formatter for rich display
-        return formatUnifiedSearchResponse(result, false);
+        // Conditionally format response
+        if (validatedInput.responseFormat === ResponseFormat.JSON) {
+          return createToolResponse(JSON.stringify(result, null, 2));
+        } else {
+          // Return the result using the formatter for rich display
+          return formatUnifiedSearchResponse(result, false);
+        }
+      } catch (error) {
+        // Handle Zod validation errors with user-friendly messages
+        if (error && typeof error === 'object' && 'issues' in error) {
+          const zodError = error as any;
+          const userFriendlyMessage = zodError.issues
+            .map((issue: any) => issue.message)
+            .join('; ');
+          throw new Error(`Invalid search parameters: ${userFriendlyMessage}`);
+        }
+
+        // Re-throw other errors as-is
+        throw error;
       }
     },
     createToolMetadata({

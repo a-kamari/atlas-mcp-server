@@ -21,14 +21,14 @@ export const UnifiedSearchRequestSchema = z.object({
     .optional()
     .default(true)
     .describe(
-      "For regex search (when 'property' is specified): Perform a case-insensitive search (Default: true). Not applicable to full-text index searches (when 'property' is omitted).",
+      "For regex search (when 'property' is specified): Controls case sensitivity of the search (Default: true for case-insensitive). Not applicable to full-text index searches which are inherently case-insensitive.",
     ),
   fuzzy: z
     .boolean()
     .optional()
-    .default(true) // Changed default to true for more intuitive "contains" search on specific properties
+    .default(true)
     .describe(
-      "For regex search (when 'property' is specified): Enables 'contains' matching (Default: true). Set to false for an exact match on the property. For full-text search (when 'property' is omitted): If true, attempts to construct a fuzzy Lucene query (e.g., term~1); if false (default for this case, as Zod default is true but full-text might interpret it differently if not explicitly handled), performs a standard term match.",
+      "Search behavior control: For regex search (when 'property' is specified): enables 'contains' matching when true (default), exact match when false. For full-text search (when 'property' is omitted): enables Lucene fuzzy matching (~1) when true, standard term match when false. Note: Different search paths may interpret this parameter differently based on available indexes.",
     ),
   taskType: z
     .string()
