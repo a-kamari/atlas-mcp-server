@@ -118,6 +118,7 @@ export const createKnowledgeDomainEnum = () => {
 export enum ResponseFormat {
   FORMATTED = "formatted",
   JSON = "json",
+  TOON = "toon",
 }
 
 export function createResponseFormatEnum() {

@@ -35,11 +35,20 @@ export class Neo4jUtils {
       ];
 
       const indexes = [
+        // Single field indexes for Project
         `CREATE INDEX project_status IF NOT EXISTS FOR (p:${NodeLabels.Project}) ON (p.status)`,
         `CREATE INDEX project_taskType IF NOT EXISTS FOR (p:${NodeLabels.Project}) ON (p.taskType)`,
+        `CREATE INDEX project_name IF NOT EXISTS FOR (p:${NodeLabels.Project}) ON (p.name)`,
+        `CREATE INDEX project_updatedAt IF NOT EXISTS FOR (p:${NodeLabels.Project}) ON (p.updatedAt)`,
+        // Composite indexes for common Project multi-field sort patterns
+        `CREATE INDEX project_status_name IF NOT EXISTS FOR (p:${NodeLabels.Project}) ON (p.status, p.name)`,
+        `CREATE INDEX project_status_createdAt IF NOT EXISTS FOR (p:${NodeLabels.Project}) ON (p.status, p.createdAt)`,
+        `CREATE INDEX project_taskType_createdAt IF NOT EXISTS FOR (p:${NodeLabels.Project}) ON (p.taskType, p.createdAt)`,
+        // Single field indexes for Task
         `CREATE INDEX task_status IF NOT EXISTS FOR (t:${NodeLabels.Task}) ON (t.status)`,
         `CREATE INDEX task_priority IF NOT EXISTS FOR (t:${NodeLabels.Task}) ON (t.priority)`,
         `CREATE INDEX task_projectId IF NOT EXISTS FOR (t:${NodeLabels.Task}) ON (t.projectId)`,
+        // Single field index for Knowledge
         `CREATE INDEX knowledge_projectId IF NOT EXISTS FOR (k:${NodeLabels.Knowledge}) ON (k.projectId)`,
       ];
 

@@ -148,6 +148,13 @@ export interface ProjectFilterOptions extends PaginationOptions {
     | ("active" | "pending" | "in-progress" | "completed" | "archived")[];
   taskType?: string;
   searchTerm?: string;
+  /**
+   * Sort by field(s). Can be a single field or array of fields.
+   * Prefix with "-" for descending order, "+" or no prefix for ascending.
+   * Allowed fields: name, status, taskType, createdAt, updatedAt
+   * Examples: "name", "-createdAt", ["+status", "-name"]
+   */
+  sortBy?: string | string[];
 }
 
 /**

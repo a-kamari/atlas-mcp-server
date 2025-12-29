@@ -1,6 +1,10 @@
 import { logger, requestContextService } from "../../utils/index.js"; // Updated import path
 import { neo4jDriver } from "./driver.js";
-import { buildListQuery, generateId } from "./helpers.js"; // Import buildListQuery
+import {
+  buildListQuery,
+  generateId,
+  SORTABLE_PROJECT_FIELDS,
+} from "./helpers.js"; // Import buildListQuery and sorting helpers
 import {
   Neo4jProject,
   NodeLabels,
@@ -433,11 +437,12 @@ export class ProjectService {
           // searchTerm is omitted here
         },
         {
-          // Pagination
-          sortBy: "createdAt", // Default sort for projects
-          sortDirection: "desc",
+          // Pagination and Sorting
+          sortBy: options.sortBy || "createdAt", // Use provided sortBy or default
+          sortDirection: "desc", // Default direction for single field without prefix
           page: options.page,
           limit: options.limit,
+          allowedSortFields: SORTABLE_PROJECT_FIELDS, // Validate sort fields
         },
         nodeAlias, // Primary node alias
         // No additional MATCH clauses needed for basic project listing

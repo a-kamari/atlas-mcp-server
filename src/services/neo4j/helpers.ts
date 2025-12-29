@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import neo4j from "neo4j-driver"; // Import the neo4j driver
 import { NodeLabels } from "./types.js"; // Import NodeLabels
 import { Neo4jUtils } from "./utils.js"; // Import Neo4jUtils
+import { BaseErrorCode, McpError } from "../../types/errors.js";
 
 /**
  * Helper functions for the Neo4j service
@@ -38,6 +39,106 @@ export function generateTimestampedId(prefix?: string): string {
 }
 
 // Removed unused toNeo4jParams function
+
+/**
+ * Interface representing a parsed sort field with direction
+ */
+export interface SortField {
+  field: string;
+  direction: "asc" | "desc";
+}
+
+/**
+ * Allowed sortable fields for Project entities
+ */
+export const SORTABLE_PROJECT_FIELDS = [
+  "name",
+  "status",
+  "taskType",
+  "createdAt",
+  "updatedAt",
+];
+
+/**
+ * Parses a sort string into a SortField object
+ * Format: "fieldName" (ascending), "+fieldName" (ascending), "-fieldName" (descending)
+ *
+ * @param sort The sort string to parse
+ * @param allowedFields Optional array of allowed field names. If provided, validates against it.
+ * @returns Parsed SortField object with field and direction
+ * @throws McpError if the field is not in the allowed list
+ */
+export function parseSortString(
+  sort: string,
+  allowedFields?: string[],
+): SortField {
+  const descending = sort.startsWith("-");
+  const ascending = sort.startsWith("+");
+  const field = sort.replace(/^[+-]/, "");
+
+  if (allowedFields && !allowedFields.includes(field)) {
+    throw new McpError(
+      BaseErrorCode.VALIDATION_ERROR,
+      `Invalid sort field: ${field}. Allowed: ${allowedFields.join(", ")}`,
+    );
+  }
+
+  return {
+    field,
+    direction: descending ? "desc" : "asc",
+  };
+}
+
+/**
+ * Normalizes sortBy input to an array of SortField objects
+ *
+ * @param sortBy Single sort string, array of sort strings, or undefined
+ * @param allowedFields Optional array of allowed field names for validation
+ * @param defaultSortField Default sort field if sortBy is undefined
+ * @param defaultSortDirection Default sort direction if sortBy is undefined
+ * @returns Array of SortField objects
+ */
+export function normalizeSortBy(
+  sortBy: string | string[] | undefined,
+  allowedFields?: string[],
+  defaultSortField: string = "createdAt",
+  defaultSortDirection: "asc" | "desc" = "desc",
+): SortField[] {
+  if (!sortBy || (Array.isArray(sortBy) && sortBy.length === 0)) {
+    return [{ field: defaultSortField, direction: defaultSortDirection }];
+  }
+
+  const sortArray = Array.isArray(sortBy) ? sortBy : [sortBy];
+  return sortArray.map((s) => parseSortString(s, allowedFields));
+}
+
+/**
+ * Builds an ORDER BY clause for Cypher queries from sort fields
+ *
+ * @param sortBy Single sort string, array of sort strings, or undefined
+ * @param nodeAlias The node alias to use in the ORDER BY clause
+ * @param allowedFields Optional array of allowed field names for validation
+ * @param defaultSortField Default sort field if sortBy is undefined
+ * @param defaultSortDirection Default sort direction if sortBy is undefined
+ * @returns The ORDER BY clause string
+ */
+export function buildOrderByClause(
+  sortBy: string | string[] | undefined,
+  nodeAlias: string,
+  allowedFields?: string[],
+  defaultSortField: string = "createdAt",
+  defaultSortDirection: "asc" | "desc" = "desc",
+): string {
+  const sortFields = normalizeSortBy(
+    sortBy,
+    allowedFields,
+    defaultSortField,
+    defaultSortDirection,
+  );
+  return `ORDER BY ${sortFields
+    .map((sf) => `${nodeAlias}.${sf.field} ${sf.direction.toUpperCase()}`)
+    .join(", ")}`;
+}
 
 /**
  * Build a Neo4j update query dynamically based on provided fields
@@ -90,10 +191,11 @@ interface ListQueryFilterOptions {
  * Interface for pagination and sorting options used in buildListQuery
  */
 interface ListQueryPaginationOptions {
-  sortBy?: string;
+  sortBy?: string | string[];
   sortDirection?: "asc" | "desc";
   page?: number;
   limit?: number;
+  allowedSortFields?: string[];
 }
 
 /**
@@ -202,9 +304,23 @@ export function buildListQuery(
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   // --- Sorting ---
-  const sortField = pagination.sortBy || "createdAt"; // Default sort field
-  const sortDirection = pagination.sortDirection || "desc"; // Default sort direction
-  const orderByClause = `ORDER BY ${nodeAlias}.${sortField} ${sortDirection.toUpperCase()}`;
+  // Use multi-field sorting with the buildOrderByClause helper
+  // If sortBy is provided, use it; otherwise fall back to legacy sortDirection handling
+  let orderByClause: string;
+  if (pagination.sortBy) {
+    orderByClause = buildOrderByClause(
+      pagination.sortBy,
+      nodeAlias,
+      pagination.allowedSortFields,
+      "createdAt",
+      pagination.sortDirection || "desc",
+    );
+  } else {
+    // Legacy single-field sort support
+    const sortField = "createdAt";
+    const sortDirection = pagination.sortDirection || "desc";
+    orderByClause = `ORDER BY ${nodeAlias}.${sortField} ${sortDirection.toUpperCase()}`;
+  }
 
   // --- Pagination ---
   const page = Math.max(pagination.page || 1, 1);

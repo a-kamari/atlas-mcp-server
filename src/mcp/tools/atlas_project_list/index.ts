@@ -15,6 +15,7 @@ import {
 import { listProjects } from "./listProjects.js";
 import { ProjectListRequest } from "./types.js";
 import { formatProjectListResponse } from "./responseFormat.js";
+import { SORTABLE_PROJECT_FIELDS, PROJECT_FIELDS } from "./fieldPresets.js";
 
 /**
  * Registers the atlas_project_list tool with the MCP server
@@ -82,6 +83,33 @@ export function registerAtlasProjectListTool(server: McpServer): void {
         ])
         .optional()
         .describe("Filter results by project status or multiple statuses"),
+      verbosity: z
+        .enum(["minimal", "standard", "full"])
+        .optional()
+        .default("standard")
+        .describe(
+          "Field verbosity level: 'minimal' (id,name,status,taskType), 'standard' (+createdAt), 'full' (all fields)",
+        ),
+      fields: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Explicit field selection (overrides verbosity). Allowed: id, name, status, taskType, createdAt, description, updatedAt, urls, completionRequirements, outputFormat",
+        ),
+      sortBy: z
+        .union([
+          z.string().regex(/^[+-]?(name|status|taskType|createdAt|updatedAt)$/),
+          z.array(
+            z
+              .string()
+              .regex(/^[+-]?(name|status|taskType|createdAt|updatedAt)$/),
+          ),
+        ])
+        .optional()
+        .default("-createdAt")
+        .describe(
+          "Sort field(s) with optional direction prefix. Use '-' for descending, '+' or none for ascending. Examples: 'name', '-createdAt', ['status', '-name']",
+        ),
       responseFormat: createResponseFormatEnum()
         .optional()
         .default(ResponseFormat.FORMATTED)
