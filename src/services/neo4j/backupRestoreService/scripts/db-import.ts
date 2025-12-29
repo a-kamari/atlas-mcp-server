@@ -116,7 +116,12 @@ const isValidBackupDir = (backupDir: string): boolean => {
  * Manual import script entry point.
  */
 const runManualImport = async () => {
-  await logger.initialize(config.logLevel as McpLogLevel);
+  try {
+    await logger.initialize(config.logLevel as McpLogLevel);
+  } catch (error) {
+    console.error("Failed to initialize logger:", error);
+    process.exit(1);
+  }
 
   const args = process.argv.slice(2);
 
@@ -164,4 +169,8 @@ const runManualImport = async () => {
   }
 };
 
-runManualImport();
+// Properly handle the async function call with error catching
+runManualImport().catch((error) => {
+  console.error("Fatal error during import:", error);
+  process.exit(1);
+});

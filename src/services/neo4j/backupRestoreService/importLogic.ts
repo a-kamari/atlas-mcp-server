@@ -153,9 +153,9 @@ export const _importDatabase = async (
         const inferredLabelFromFile = path.basename(nodeFile, ".json");
         const label = inferredLabelFromFile.endsWith("s")
           ? inferredLabelFromFile.charAt(0).toUpperCase() +
-            inferredLabelFromFile.slice(1, -1)
+          inferredLabelFromFile.slice(1, -1)
           : inferredLabelFromFile.charAt(0).toUpperCase() +
-            inferredLabelFromFile.slice(1);
+          inferredLabelFromFile.slice(1);
 
         if (!existsSync(filePath)) {
           logger.warning(
@@ -291,7 +291,11 @@ export const _importDatabase = async (
                   `UNWIND transaction executed for type ${relType}, batch ${batchNumber}`,
                   { ...baseContext, relType, batchNumber },
                 );
-                return txResult.records[0]?.get("createdCount").toNumber() || 0;
+                const countValue = txResult.records[0]?.get("createdCount");
+                // Handle both Neo4j Integer objects and regular numbers
+                return typeof countValue === 'object' && countValue !== null && 'toNumber' in countValue
+                  ? countValue.toNumber()
+                  : Number(countValue) || 0;
               });
               importedCount += result;
               logger.debug(
