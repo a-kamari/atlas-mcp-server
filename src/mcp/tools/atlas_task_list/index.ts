@@ -13,8 +13,9 @@ import {
   registerTool,
 } from "../../../types/tool.js";
 import { atlasListTasks } from "./listTasks.js";
-import { formatTaskListResponse } from "./responseFormat.js";
-import { TaskListRequestInput } from "./types.js"; // Corrected import
+import { formatResponse } from "./responseFormat.js";
+import { TaskListRequestInput } from "./types.js";
+import { VerbosityLevel } from "./fieldPresets.js";
 
 // Schema shapes for tool registration
 const TaskListRequestSchemaShape = {
@@ -83,6 +84,19 @@ const TaskListRequestSchemaShape = {
     .number()
     .optional()
     .describe("Number of results per page, maximum 100 (Default: 20)"),
+  verbosity: z
+    .enum(["minimal", "standard", "full"])
+    .optional()
+    .default("standard")
+    .describe(
+      "Field verbosity level: 'minimal' (id,title,status,priority), 'standard' (+projectId,createdAt), 'full' (all fields)",
+    ),
+  fields: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Explicit field selection (overrides verbosity). Allowed: id, title, status, priority, projectId, createdAt, description, updatedAt, assignedTo, tags, taskType, completionRequirements, outputFormat, urls",
+    ),
   responseFormat: createResponseFormatEnum()
     .optional()
     .default(ResponseFormat.FORMATTED)
@@ -98,21 +112,19 @@ export const registerAtlasTaskListTool = (server: McpServer) => {
     "Lists tasks according to specified filters with advanced filtering, sorting, and pagination capabilities",
     TaskListRequestSchemaShape,
     async (input, context) => {
-      // Parse and process input (assuming validation happens implicitly via registerTool)
       const validatedInput = input as unknown as TaskListRequestInput & {
         responseFormat?: ResponseFormat;
-      }; // Corrected type cast
-      const result = await atlasListTasks(validatedInput, context); // Added context argument
+        verbosity?: VerbosityLevel;
+        fields?: string[];
+      };
+      const result = await atlasListTasks(validatedInput, context);
 
-      // Conditionally format response
-      if (validatedInput.responseFormat === ResponseFormat.JSON) {
-        // Stringify the result and wrap it in a standard text response
-        // The client will need to parse this stringified JSON
-        return createToolResponse(JSON.stringify(result, null, 2));
-      } else {
-        // Return the formatted string using the formatter for rich display
-        return formatTaskListResponse(result, false); // Added second argument
-      }
+      return formatResponse(
+        result,
+        validatedInput.responseFormat ?? ResponseFormat.FORMATTED,
+        validatedInput.verbosity ?? "standard",
+        validatedInput.fields,
+      );
     },
     createToolMetadata({
       examples: [

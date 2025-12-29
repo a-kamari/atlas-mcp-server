@@ -11,8 +11,9 @@ import {
   registerTool,
 } from "../../../types/tool.js";
 import { listKnowledge } from "./listKnowledge.js";
-import { formatKnowledgeListResponse } from "./responseFormat.js";
-import { KnowledgeListRequest } from "./types.js"; // Corrected import name
+import { formatResponse } from "./responseFormat.js";
+import { KnowledgeListRequest } from "./types.js";
+import { VerbosityLevel } from "./fieldPresets.js";
 
 /**
  * Registers the atlas_knowledge_list tool with the MCP server
@@ -55,6 +56,19 @@ export function registerAtlasKnowledgeListTool(server: McpServer): void {
         .optional()
         .default(20)
         .describe("Number of results per page, maximum 100 (Default: 20)"),
+      verbosity: z
+        .enum(["minimal", "standard", "full"])
+        .optional()
+        .default("standard")
+        .describe(
+          "Field verbosity level: 'minimal' (id,domain,tags), 'standard' (+projectId,createdAt), 'full' (all fields)",
+        ),
+      fields: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Explicit field selection (overrides verbosity). Allowed: id, domain, tags, projectId, createdAt, text, updatedAt, citations, projectName",
+        ),
       responseFormat: createResponseFormatEnum()
         .optional()
         .default(ResponseFormat.FORMATTED)
@@ -63,19 +77,19 @@ export function registerAtlasKnowledgeListTool(server: McpServer): void {
         ),
     },
     async (input, context) => {
-      // Process knowledge list request
       const validatedInput = input as unknown as KnowledgeListRequest & {
         responseFormat?: ResponseFormat;
-      }; // Corrected type cast
+        verbosity?: VerbosityLevel;
+        fields?: string[];
+      };
       const result = await listKnowledge(validatedInput);
 
-      // Conditionally format response
-      if (validatedInput.responseFormat === ResponseFormat.JSON) {
-        return createToolResponse(JSON.stringify(result, null, 2));
-      } else {
-        // Return the result using the formatter for rich display
-        return formatKnowledgeListResponse(result, false);
-      }
+      return formatResponse(
+        result,
+        validatedInput.responseFormat ?? ResponseFormat.FORMATTED,
+        validatedInput.verbosity ?? "standard",
+        validatedInput.fields,
+      );
     },
     createToolMetadata({
       examples: [

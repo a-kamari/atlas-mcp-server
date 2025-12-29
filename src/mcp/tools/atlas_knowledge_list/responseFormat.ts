@@ -1,23 +1,85 @@
-import { createToolResponse } from "../../../types/mcp.js"; // Import the new response creator
-import { KnowledgeListResponse } from "./types.js";
+import { encode as encodeToon } from "@toon-format/toon";
+import { createToolResponse, ResponseFormat } from "../../../types/mcp.js";
+import { logger, requestContextService } from "../../../utils/index.js";
+import { KnowledgeListResponse, KnowledgeItem } from "./types.js";
+import {
+  KnowledgeField,
+  resolveFields,
+  VerbosityLevel,
+} from "./fieldPresets.js";
 
 /**
- * Defines a generic interface for formatting data into a string.
+ * Filter a knowledge item to only include specified fields
  */
-interface ResponseFormatter<T> {
-  format(data: T): string;
+function filterKnowledgeFields(
+  item: KnowledgeItem,
+  fields: KnowledgeField[],
+): Partial<KnowledgeItem> {
+  const filtered: Partial<KnowledgeItem> = {};
+  for (const field of fields) {
+    if (field in item) {
+      (filtered as unknown as Record<string, unknown>)[field] = (
+        item as unknown as Record<string, unknown>
+      )[field];
+    }
+  }
+  return filtered;
+}
+
+/**
+ * Apply field filtering to the entire response
+ */
+export function applyFieldFiltering(
+  response: KnowledgeListResponse,
+  verbosity: VerbosityLevel = "standard",
+  explicitFields?: string[],
+): KnowledgeListResponse {
+  const fields = resolveFields(verbosity, explicitFields);
+
+  const filteredKnowledge = response.knowledge.map((item) => {
+    return filterKnowledgeFields(item, fields) as KnowledgeItem;
+  });
+
+  return {
+    ...response,
+    knowledge: filteredKnowledge,
+  };
+}
+
+/**
+ * Encode response data to TOON format
+ */
+function encodeToToon(data: KnowledgeListResponse): string {
+  try {
+    const toonData: Record<string, unknown> = {
+      knowledge: data.knowledge,
+      pagination: {
+        total: data.total,
+        page: data.page,
+        totalPages: data.totalPages,
+      },
+    };
+
+    return encodeToon(toonData);
+  } catch (error) {
+    const reqContext = requestContextService.createRequestContext({
+      toolName: "encodeToToon",
+    });
+    logger.warning("TOON encoding failed, falling back to JSON", {
+      ...reqContext,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return JSON.stringify(data, null, 2);
+  }
 }
 
 /**
  * Formatter for structured knowledge query responses
  */
-export class KnowledgeListFormatter
-  implements ResponseFormatter<KnowledgeListResponse>
-{
+export class KnowledgeListFormatter {
   format(data: KnowledgeListResponse): string {
     const { knowledge, total, page, limit, totalPages } = data;
 
-    // Generate result summary section
     const summary =
       `Knowledge Repository\n\n` +
       `Total Items: ${total}\n` +
@@ -28,7 +90,6 @@ export class KnowledgeListFormatter
       return `${summary}\n\nNo knowledge items matched the specified criteria`;
     }
 
-    // Format each knowledge item
     const knowledgeSections = knowledge
       .map((item, index) => {
         const {
@@ -49,12 +110,10 @@ export class KnowledgeListFormatter
           `Project: ${projectName || projectId}\n` +
           `Domain: ${domain}\n`;
 
-        // Add tags if available
         if (tags && tags.length > 0) {
           knowledgeSection += `Tags: ${tags.join(", ")}\n`;
         }
 
-        // Format dates
         const createdDate = createdAt
           ? new Date(createdAt).toLocaleString()
           : "Unknown Date";
@@ -65,10 +124,8 @@ export class KnowledgeListFormatter
         knowledgeSection +=
           `Created: ${createdDate}\n` + `Updated: ${updatedDate}\n\n`;
 
-        // Add knowledge content
         knowledgeSection += `Content:\n${text || "No content available"}\n`;
 
-        // Add citations if available
         if (citations && citations.length > 0) {
           knowledgeSection += `\nCitations:\n`;
           citations.forEach((citation, citIndex) => {
@@ -80,7 +137,6 @@ export class KnowledgeListFormatter
       })
       .join("\n\n----------\n\n");
 
-    // Append pagination metadata for multi-page results
     let paginationInfo = "";
     if (totalPages > 1) {
       paginationInfo =
@@ -94,14 +150,39 @@ export class KnowledgeListFormatter
 }
 
 /**
- * Create a human-readable formatted response for the atlas_knowledge_list tool
- *
- * @param data The structured knowledge query response data
- * @param isError Whether this response represents an error condition
- * @returns Formatted MCP tool response with appropriate structure
+ * Format response based on the requested format
  */
-export function formatKnowledgeListResponse(data: any, isError = false): any {
+export function formatResponse(
+  data: KnowledgeListResponse,
+  responseFormat: ResponseFormat,
+  verbosity: VerbosityLevel = "standard",
+  explicitFields?: string[],
+): ReturnType<typeof createToolResponse> {
+  const filteredData = applyFieldFiltering(data, verbosity, explicitFields);
+
+  switch (responseFormat) {
+    case ResponseFormat.TOON:
+      return createToolResponse(encodeToToon(filteredData));
+
+    case ResponseFormat.JSON:
+      return createToolResponse(JSON.stringify(filteredData, null, 2));
+
+    case ResponseFormat.FORMATTED:
+    default:
+      const formatter = new KnowledgeListFormatter();
+      return createToolResponse(formatter.format(filteredData));
+  }
+}
+
+/**
+ * Create a human-readable formatted response for the atlas_knowledge_list tool
+ * @deprecated Use formatResponse instead for full format support
+ */
+export function formatKnowledgeListResponse(
+  data: unknown,
+  isError = false,
+): ReturnType<typeof createToolResponse> {
   const formatter = new KnowledgeListFormatter();
-  const formattedText = formatter.format(data as KnowledgeListResponse); // Assuming data is KnowledgeListResponse
+  const formattedText = formatter.format(data as KnowledgeListResponse);
   return createToolResponse(formattedText, isError);
 }

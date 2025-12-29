@@ -82,6 +82,19 @@ export const TaskListRequestSchema = z.object({
     .optional()
     .default(20)
     .describe("Number of results per page, maximum 100 (Default: 20)"),
+  verbosity: z
+    .enum(["minimal", "standard", "full"])
+    .optional()
+    .default("standard")
+    .describe(
+      "Field verbosity level: 'minimal' (id,title,status,priority), 'standard' (+projectId,createdAt), 'full' (all fields)",
+    ),
+  fields: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Explicit field selection (overrides verbosity). Allowed: id, title, status, priority, projectId, createdAt, description, updatedAt, assignedTo, tags, taskType, completionRequirements, outputFormat, urls",
+    ),
 });
 
 export type TaskListRequestInput = z.infer<typeof TaskListRequestSchema>;

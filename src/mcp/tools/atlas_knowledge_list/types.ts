@@ -22,6 +22,12 @@ export interface KnowledgeListRequest {
 
   /** Number of results per page, maximum 100 (Default: 20) */
   limit?: number;
+
+  /** Field verbosity level (Default: 'standard') */
+  verbosity?: "minimal" | "standard" | "full";
+
+  /** Explicit field selection (overrides verbosity) */
+  fields?: string[];
 }
 
 /**
