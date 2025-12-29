@@ -1,5 +1,14 @@
-import { createToolResponse } from "../../../types/mcp.js"; // Import the new response creator
-import { Project, ProjectListResponse } from "./types.js";
+import { encode as encodeToon } from "@toon-format/toon";
+import { createToolResponse, ResponseFormat } from "../../../types/mcp.js";
+import { logger, requestContextService } from "../../../utils/index.js";
+import { Project, ProjectListResponse, Task, Knowledge } from "./types.js";
+import {
+  ProjectField,
+  resolveFields,
+  VerbosityLevel,
+  NESTED_TASK_FIELDS,
+  NESTED_KNOWLEDGE_FIELDS,
+} from "./fieldPresets.js";
 
 /**
  * Defines a generic interface for formatting data into a string.
@@ -9,7 +18,112 @@ interface ResponseFormatter<T> {
 }
 
 /**
- * Formatter for structured project query responses
+ * Filter a project to only include specified fields
+ */
+function filterProjectFields(
+  project: Project,
+  fields: ProjectField[],
+): Partial<Project> {
+  const filtered: Partial<Project> = {};
+  for (const field of fields) {
+    if (field in project) {
+      (filtered as unknown as Record<string, unknown>)[field] = (
+        project as unknown as Record<string, unknown>
+      )[field];
+    }
+  }
+  return filtered;
+}
+
+/**
+ * Filter a task to only include minimal fields
+ */
+function filterTaskFields(
+  task: Task,
+): Pick<Task, "id" | "title" | "status" | "priority"> {
+  return {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+  };
+}
+
+/**
+ * Filter a knowledge item to only include minimal fields
+ */
+function filterKnowledgeFields(
+  knowledge: Knowledge,
+): Pick<Knowledge, "id" | "domain" | "tags"> {
+  return {
+    id: knowledge.id,
+    domain: knowledge.domain,
+    tags: knowledge.tags,
+  };
+}
+
+/**
+ * Apply field filtering to the entire response
+ */
+export function applyFieldFiltering(
+  response: ProjectListResponse,
+  verbosity: VerbosityLevel = "standard",
+  explicitFields?: string[],
+): ProjectListResponse {
+  const fields = resolveFields(verbosity, explicitFields);
+
+  const filteredProjects = response.projects.map((project) => {
+    const filtered = filterProjectFields(project, fields) as Project;
+
+    // Apply fixed minimal verbosity to nested entities
+    if (project.tasks && project.tasks.length > 0) {
+      filtered.tasks = project.tasks.map(filterTaskFields) as Task[];
+    }
+    if (project.knowledge && project.knowledge.length > 0) {
+      filtered.knowledge = project.knowledge.map(
+        filterKnowledgeFields,
+      ) as Knowledge[];
+    }
+
+    return filtered;
+  });
+
+  return {
+    ...response,
+    projects: filteredProjects,
+  };
+}
+
+/**
+ * Encode response data to TOON format
+ */
+function encodeToToon(data: ProjectListResponse): string {
+  try {
+    // Prepare data structure for TOON encoding
+    const toonData: Record<string, unknown> = {
+      projects: data.projects,
+      pagination: {
+        total: data.total,
+        page: data.page,
+        totalPages: data.totalPages,
+      },
+    };
+
+    return encodeToon(toonData);
+  } catch (error) {
+    const reqContext = requestContextService.createRequestContext({
+      toolName: "encodeToToon",
+    });
+    logger.warning("TOON encoding failed, falling back to JSON", {
+      ...reqContext,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return JSON.stringify(data, null, 2);
+  }
+}
+
+/**
+ * Formatter for structured project query responses (formatted text output)
  */
 export class ProjectListFormatter
   implements ResponseFormatter<ProjectListResponse>
@@ -20,15 +134,15 @@ export class ProjectListFormatter
   private getStatusEmoji(status: string): string {
     switch (status) {
       case "backlog":
-        return "📋";
+        return "[B]";
       case "todo":
-        return "📝";
+        return "[T]";
       case "in_progress":
-        return "🔄";
+        return "[P]";
       case "completed":
-        return "✅";
+        return "[C]";
       default:
-        return "❓";
+        return "[?]";
     }
   }
 
@@ -137,11 +251,11 @@ export class ProjectListFormatter
                 ? new Date(task.createdAt).toLocaleString()
                 : "Unknown Date";
 
-              const statusEmoji = this.getStatusEmoji(taskStatus);
+              const statusIndicator = this.getStatusEmoji(taskStatus);
               const priorityIndicator = this.getPriorityIndicator(taskPriority);
 
               return (
-                `  ${taskIndex + 1}. ${statusEmoji} ${priorityIndicator} ${taskTitle}\n` +
+                `  ${taskIndex + 1}. ${statusIndicator} ${priorityIndicator} ${taskTitle}\n` +
                 `     ID: ${taskId}\n` +
                 `     Status: ${taskStatus}\n` +
                 `     Priority: ${taskPriority}\n` +
@@ -187,14 +301,37 @@ export class ProjectListFormatter
 }
 
 /**
- * Create a human-readable formatted response for the atlas_project_list tool
- *
- * @param data The structured project query response data
- * @param isError Whether this response represents an error condition
- * @returns Formatted MCP tool response with appropriate structure
+ * Format response based on the requested format
  */
-export function formatProjectListResponse(data: any, isError = false): any {
+export function formatResponse(
+  data: ProjectListResponse,
+  responseFormat: ResponseFormat,
+  verbosity: VerbosityLevel = "standard",
+  explicitFields?: string[],
+): ReturnType<typeof createToolResponse> {
+  // Apply field filtering first
+  const filteredData = applyFieldFiltering(data, verbosity, explicitFields);
+
+  switch (responseFormat) {
+    case ResponseFormat.TOON:
+      return createToolResponse(encodeToToon(filteredData));
+
+    case ResponseFormat.JSON:
+      return createToolResponse(JSON.stringify(filteredData, null, 2));
+
+    case ResponseFormat.FORMATTED:
+    default:
+      const formatter = new ProjectListFormatter();
+      return createToolResponse(formatter.format(filteredData));
+  }
+}
+
+/**
+ * Create a human-readable formatted response for the atlas_project_list tool
+ * @deprecated Use formatResponse instead for full format support
+ */
+export function formatProjectListResponse(data: unknown, isError = false): ReturnType<typeof createToolResponse> {
   const formatter = new ProjectListFormatter();
-  const formattedText = formatter.format(data as ProjectListResponse); // Assuming data is ProjectListResponse
+  const formattedText = formatter.format(data as ProjectListResponse);
   return createToolResponse(formattedText, isError);
 }

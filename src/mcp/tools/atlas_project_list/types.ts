@@ -34,6 +34,15 @@ export interface ProjectListRequest {
     | "completed"
     | "archived"
     | ("active" | "pending" | "in-progress" | "completed" | "archived")[];
+
+  /** Field verbosity level (Default: 'standard') */
+  verbosity?: "minimal" | "standard" | "full";
+
+  /** Explicit field selection (overrides verbosity) */
+  fields?: string[];
+
+  /** Sort field(s) with optional direction prefix */
+  sortBy?: string | string[];
 }
 
 /**

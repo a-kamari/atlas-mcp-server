@@ -37,6 +37,7 @@ export async function listProjects(
       includeTasks = false,
       taskType,
       status,
+      sortBy,
     } = request;
 
     // Parameter validation
@@ -77,6 +78,7 @@ export async function listProjects(
         taskType,
         page: validatedPage,
         limit: validatedLimit,
+        sortBy,
       });
 
       // Cast each project to the tool's Project type

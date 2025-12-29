@@ -14,8 +14,8 @@ import {
 } from "../../../types/tool.js";
 import { listProjects } from "./listProjects.js";
 import { ProjectListRequest } from "./types.js";
-import { formatProjectListResponse } from "./responseFormat.js";
-import { SORTABLE_PROJECT_FIELDS, PROJECT_FIELDS } from "./fieldPresets.js";
+import { formatResponse } from "./responseFormat.js";
+import { SORTABLE_PROJECT_FIELDS, PROJECT_FIELDS, VerbosityLevel } from "./fieldPresets.js";
 
 /**
  * Registers the atlas_project_list tool with the MCP server
@@ -121,16 +121,18 @@ export function registerAtlasProjectListTool(server: McpServer): void {
       // Parse and process input (assuming validation happens implicitly via registerTool)
       const validatedInput = input as unknown as ProjectListRequest & {
         responseFormat?: ResponseFormat;
+        verbosity?: VerbosityLevel;
+        fields?: string[];
       };
       const result = await listProjects(validatedInput);
 
-      // Conditionally format response
-      if (validatedInput.responseFormat === ResponseFormat.JSON) {
-        return createToolResponse(JSON.stringify(result, null, 2));
-      } else {
-        // Return the result using the formatter for rich display
-        return formatProjectListResponse(result);
-      }
+      // Format response with field filtering and chosen format
+      return formatResponse(
+        result,
+        validatedInput.responseFormat ?? ResponseFormat.FORMATTED,
+        validatedInput.verbosity ?? "standard",
+        validatedInput.fields,
+      );
     },
     createToolMetadata({
       examples: [

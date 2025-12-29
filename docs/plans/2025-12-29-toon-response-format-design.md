@@ -1,7 +1,7 @@
 # TOON Response Format & Project Sorting Design
 
 **Date:** 2025-12-29
-**Status:** In Progress
+**Status:** Complete
 **Scope:** `atlas_project_list` tool
 
 ## Implementation Status
@@ -12,8 +12,9 @@
 | Multi-field sorting | Done | `src/services/neo4j/helpers.ts`, `types.ts`, `projectService.ts` |
 | Field presets & validation | Done | `src/mcp/tools/atlas_project_list/fieldPresets.ts`, `index.ts` |
 | Neo4j composite indexes | Done | `src/services/neo4j/utils.ts` |
-| TOON encoder integration | Pending | `src/mcp/tools/atlas_project_list/responseFormat.ts` |
-| Field filtering in response | Pending | `src/mcp/tools/atlas_project_list/listProjects.ts` |
+| TOON encoder integration | Done | `src/mcp/tools/atlas_project_list/responseFormat.ts` |
+| Field filtering in response | Done | `src/mcp/tools/atlas_project_list/listProjects.ts`, `types.ts` |
+| Package installation | Done | `package.json` (`@toon-format/toon`) |
 
 ### Completed Changes
 
@@ -43,12 +44,20 @@
 **`src/mcp/tools/atlas_project_list/index.ts`:**
 - Added `verbosity`, `fields`, `sortBy` schema parameters with validation
 
-### Remaining Work
+**`src/mcp/tools/atlas_project_list/responseFormat.ts`:**
+- Added TOON encoding with `@toon-format/toon` package
+- Added `filterProjectFields()`, `filterTaskFields()`, `filterKnowledgeFields()` functions
+- Added `applyFieldFiltering()` for verbosity-based field selection
+- Added `formatResponse()` as the main entry point supporting all formats
 
-1. Install `@toon-format/toon` package
-2. Implement TOON encoding in `responseFormat.ts`
-3. Wire up field filtering in `listProjects.ts`
-4. Update response flow to use verbosity/fields
+**`src/mcp/tools/atlas_project_list/listProjects.ts`:**
+- Added `sortBy` parameter extraction and pass-through to ProjectService
+
+**`src/mcp/tools/atlas_project_list/types.ts`:**
+- Added `verbosity`, `fields`, `sortBy` to `ProjectListRequest` interface
+
+**`package.json`:**
+- Added `@toon-format/toon` v2.1.0 dependency
 
 ## Problem Statement
 
