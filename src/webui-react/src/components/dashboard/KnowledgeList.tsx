@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ExpandableContent } from "./ExpandableContent";
 
 interface Knowledge {
   id: string;
@@ -45,14 +46,21 @@ const DOMAIN_CONFIG: Record<string, { icon: typeof Globe; color: string; bg: str
   },
 };
 
-function KnowledgeCard({ item }: { item: Knowledge }) {
-  const domain = item.domain
-    ? DOMAIN_CONFIG[item.domain] || { icon: BookOpen, color: "text-slate-400", bg: "bg-slate-500/10" }
-    : { icon: BookOpen, color: "text-slate-400", bg: "bg-slate-500/10" };
-  const DomainIcon = domain.icon;
+const DEFAULT_DOMAIN_CONFIG = { icon: BookOpen, color: "text-slate-400", bg: "bg-slate-500/10" };
 
-  // Truncate text for preview
-  const previewText = item.text.length > 300 ? item.text.substring(0, 300) + "..." : item.text;
+/** Safely parse URL hostname with fallback for malformed URLs */
+function safeParseHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    // Fallback for malformed URLs: truncate to reasonable length
+    return url.length > 30 ? url.slice(0, 30) + "..." : url;
+  }
+}
+
+function KnowledgeCard({ item }: { item: Knowledge }) {
+  const domain = (item.domain && DOMAIN_CONFIG[item.domain]) || DEFAULT_DOMAIN_CONFIG;
+  const DomainIcon = domain.icon;
 
   return (
     <div
@@ -85,10 +93,12 @@ function KnowledgeCard({ item }: { item: Knowledge }) {
           </div>
         </div>
 
-        {/* Content preview */}
-        <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-          {previewText}
-        </div>
+        {/* Expandable content with markdown rendering */}
+        <ExpandableContent
+          content={item.text}
+          maxLines={4}
+          renderAsMarkdown={true}
+        />
 
         {/* Tags */}
         {item.tags && item.tags.length > 0 && (
@@ -123,8 +133,9 @@ function KnowledgeCard({ item }: { item: Knowledge }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-primary hover:underline truncate max-w-[200px]"
+                    aria-label={`Citation link to ${safeParseHostname(citation)} (opens in new tab)`}
                   >
-                    {new URL(citation).hostname}
+                    {safeParseHostname(citation)}
                   </a>
                 ) : (
                   <span
@@ -174,7 +185,7 @@ export function KnowledgeList({ knowledge, className }: KnowledgeListProps) {
         const items = groupedKnowledge[domain];
         if (!items || items.length === 0) return null;
 
-        const config = DOMAIN_CONFIG[domain] || { icon: BookOpen, color: "text-slate-400", bg: "bg-slate-500/10" };
+        const config = DOMAIN_CONFIG[domain] || DEFAULT_DOMAIN_CONFIG;
         const DomainIcon = config.icon;
 
         return (

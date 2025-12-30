@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ExpandableContent } from "./ExpandableContent";
 
 interface Task {
   id: string;
@@ -138,9 +139,13 @@ function TaskCard({ task }: { task: Task }) {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {task.description}
-          </p>
+          {task.description && (
+            <ExpandableContent
+              content={task.description}
+              maxLines={2}
+              renderAsMarkdown={true}
+            />
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <Badge
