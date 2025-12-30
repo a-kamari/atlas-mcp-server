@@ -61,16 +61,18 @@ export const SORTABLE_PROJECT_FIELDS = [
 
 /**
  * Parses a sort string into a SortField object
- * Format: "fieldName" (ascending), "+fieldName" (ascending), "-fieldName" (descending)
+ * Format: "fieldName" (uses defaultDirection), "+fieldName" (ascending), "-fieldName" (descending)
  *
  * @param sort The sort string to parse
  * @param allowedFields Optional array of allowed field names. If provided, validates against it.
+ * @param defaultDirection Direction to use when no +/- prefix is present (default: "desc")
  * @returns Parsed SortField object with field and direction
  * @throws McpError if the field is not in the allowed list
  */
 export function parseSortString(
   sort: string,
   allowedFields?: string[],
+  defaultDirection: "asc" | "desc" = "desc",
 ): SortField {
   const descending = sort.startsWith("-");
   const ascending = sort.startsWith("+");
@@ -83,9 +85,19 @@ export function parseSortString(
     );
   }
 
+  // Use explicit prefix if provided, otherwise use defaultDirection
+  let direction: "asc" | "desc";
+  if (descending) {
+    direction = "desc";
+  } else if (ascending) {
+    direction = "asc";
+  } else {
+    direction = defaultDirection;
+  }
+
   return {
     field,
-    direction: descending ? "desc" : "asc",
+    direction,
   };
 }
 
@@ -109,7 +121,8 @@ export function normalizeSortBy(
   }
 
   const sortArray = Array.isArray(sortBy) ? sortBy : [sortBy];
-  return sortArray.map((s) => parseSortString(s, allowedFields));
+  // Pass defaultSortDirection to parseSortString for fields without explicit +/- prefix
+  return sortArray.map((s) => parseSortString(s, allowedFields, defaultSortDirection));
 }
 
 /**
