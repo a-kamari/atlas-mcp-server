@@ -168,7 +168,10 @@ async function startTransport(): Promise<McpServer | http.Server | void> {
       "Delegating to startHttpTransport for ATLAS MCP Server...",
       parentContext,
     );
-    const httpServerInstance = await startHttpTransport(createMcpServerInstance, parentContext);
+    const httpServerInstance = await startHttpTransport(
+      createMcpServerInstance,
+      parentContext,
+    );
     return httpServerInstance;
   }
 
@@ -198,7 +201,9 @@ async function startTransport(): Promise<McpServer | http.Server | void> {
 /**
  * Main application entry point. Initializes and starts the MCP server.
  */
-export async function initializeAndStartServer(): Promise<void | McpServer | http.Server> {
+export async function initializeAndStartServer(): Promise<
+  void | McpServer | http.Server
+> {
   const context = requestContextService.createRequestContext({
     operation: "initializeAndStartServer",
   });

@@ -21,9 +21,12 @@
   "homepage": "https://github.com/cyanheads/atlas-mcp-server#readme",
   "scripts": {
     "build": "tsc && node --loader ts-node/esm scripts/make-executable.ts dist/index.js",
+    "build:webui": "cd src/webui-react && pnpm install && pnpm run build",
+    "build:all": "npm run build:webui && npm run build",
     "db:backup": "node --loader ts-node/esm src/services/neo4j/backupRestoreService/scripts/db-backup.ts",
     "db:import": "node --loader ts-node/esm src/services/neo4j/backupRestoreService/scripts/db-import.ts",
     "dev": "tsc -w",
+    "dev:webui": "cd src/webui-react && pnpm run dev",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "docker:up": "docker-compose up -d",
@@ -33,8 +36,8 @@
     "inspector": "mcp-inspector --config mcp.json --server atlas-mcp-server",
     "rebuild": "ts-node --esm scripts/clean.ts && npm run build",
     "start": "node dist/index.js",
-    "start:http": "MCP_LOG_LEVEL=debug MCP_TRANSPORT_TYPE=http node dist/index.js",
-    "start:stdio": "MCP_LOG_LEVEL=debug MCP_TRANSPORT_TYPE=stdio node dist/index.js",
+    "start:http": "cross-env MCP_LOG_LEVEL=debug MCP_TRANSPORT_TYPE=http node dist/index.js",
+    "start:stdio": "cross-env MCP_LOG_LEVEL=debug MCP_TRANSPORT_TYPE=stdio node dist/index.js",
     "tree": "ts-node --esm scripts/tree.ts",
     "webui": "npx serve src/webui -l 8000"
   },
@@ -108,6 +111,7 @@
     "axios": "^1.9.0",
     "js-yaml": "^4.1.0",
     "prettier": "^3.5.3",
+    "shadcn": "^3.6.2",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.5",
     "typescript": "^5.8.3"

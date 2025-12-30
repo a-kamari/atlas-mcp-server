@@ -330,22 +330,22 @@ export const config = {
   /** OAuth Proxy configurations. Undefined if no related env vars are set. */
   oauthProxy:
     env.OAUTH_PROXY_AUTHORIZATION_URL ||
-      env.OAUTH_PROXY_TOKEN_URL ||
-      env.OAUTH_PROXY_REVOCATION_URL ||
-      env.OAUTH_PROXY_ISSUER_URL ||
-      env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL ||
-      env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS
+    env.OAUTH_PROXY_TOKEN_URL ||
+    env.OAUTH_PROXY_REVOCATION_URL ||
+    env.OAUTH_PROXY_ISSUER_URL ||
+    env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL ||
+    env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS
       ? {
-        authorizationUrl: env.OAUTH_PROXY_AUTHORIZATION_URL,
-        tokenUrl: env.OAUTH_PROXY_TOKEN_URL,
-        revocationUrl: env.OAUTH_PROXY_REVOCATION_URL,
-        issuerUrl: env.OAUTH_PROXY_ISSUER_URL,
-        serviceDocumentationUrl: env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL,
-        defaultClientRedirectUris:
-          env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS?.split(",")
-            .map((uri) => uri.trim())
-            .filter(Boolean),
-      }
+          authorizationUrl: env.OAUTH_PROXY_AUTHORIZATION_URL,
+          tokenUrl: env.OAUTH_PROXY_TOKEN_URL,
+          revocationUrl: env.OAUTH_PROXY_REVOCATION_URL,
+          issuerUrl: env.OAUTH_PROXY_ISSUER_URL,
+          serviceDocumentationUrl: env.OAUTH_PROXY_SERVICE_DOCUMENTATION_URL,
+          defaultClientRedirectUris:
+            env.OAUTH_PROXY_DEFAULT_CLIENT_REDIRECT_URIS?.split(",")
+              .map((uri) => uri.trim())
+              .filter(Boolean),
+        }
       : undefined,
 };
 

@@ -191,3 +191,6 @@ repomix-output*
 duckdata/
 .claude
 *atlas-backups*
+.serena/.gitignore
+.serena/project.yml
+.mcp.json

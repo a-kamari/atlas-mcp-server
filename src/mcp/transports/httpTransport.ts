@@ -17,6 +17,8 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express, { NextFunction, Request, Response } from "express";
 import http from "http";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { config } from "../../config/index.js";
 import { BaseErrorCode, McpError } from "../../types/errors.js"; // For McpError type check
 import {
@@ -26,6 +28,7 @@ import {
   requestContextService,
 } from "../../utils/index.js";
 import { mcpAuthMiddleware } from "./authentication/authMiddleware.js";
+import { createWebuiApiRouter } from "../../api/index.js";
 
 /**
  * The port number for the HTTP transport, configured via `MCP_HTTP_PORT` environment variable.
@@ -372,9 +375,11 @@ export async function startHttpTransport(
     }
   };
 
-  // Apply rate limiter to the MCP endpoint for all methods
+  // Apply rate limiter to the MCP endpoint and API routes for all methods
   app.use(MCP_ENDPOINT_PATH, httpRateLimitMiddleware);
+  app.use("/api", httpRateLimitMiddleware);
 
+  // CORS preflight handler for MCP endpoint
   app.options(MCP_ENDPOINT_PATH, (req, res) => {
     const optionsContext = requestContextService.createRequestContext({
       ...transportContext,
@@ -396,6 +401,31 @@ export async function startHttpTransport(
     } else {
       logger.debug(
         "OPTIONS request origin denied, sending 403.",
+        optionsContext,
+      );
+      res.status(403).send("Forbidden: Invalid Origin");
+    }
+  });
+
+  // CORS preflight handler for WebUI API routes
+  app.options("/api/*splat", (req, res) => {
+    const optionsContext = requestContextService.createRequestContext({
+      ...transportContext,
+      operation: "handleApiOptions",
+      origin: req.headers.origin,
+      method: req.method,
+      path: req.path,
+    });
+    logger.debug(`Received OPTIONS request for ${req.path}`, optionsContext);
+    if (isOriginAllowed(req, res)) {
+      logger.debug(
+        "API OPTIONS request origin allowed, sending 204.",
+        optionsContext,
+      );
+      res.sendStatus(204);
+    } else {
+      logger.debug(
+        "API OPTIONS request origin denied, sending 403.",
         optionsContext,
       );
       res.status(403).send("Forbidden: Invalid Origin");
@@ -427,6 +457,41 @@ export async function startHttpTransport(
   });
 
   app.use(mcpAuthMiddleware);
+
+  // ============================================================================
+  // WebUI REST API Routes
+  // Mount the WebUI API router at /api for dashboard data access
+  // These routes provide optimized endpoints for the React dashboard
+  // ============================================================================
+  const webuiApiRouter = createWebuiApiRouter();
+  app.use("/api", webuiApiRouter);
+  logger.debug("WebUI REST API routes mounted at /api", transportContext);
+
+  // ============================================================================
+  // Serve React WebUI Static Files
+  // ============================================================================
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const webuiDistPath = path.resolve(__dirname, "../../../dist/webui");
+
+  // Serve static files from the React build
+  app.use(
+    "/dashboard",
+    express.static(webuiDistPath, {
+      index: "index.html",
+      fallthrough: true,
+    })
+  );
+
+  // SPA fallback - serve index.html for any unmatched routes under /dashboard
+  app.get("/dashboard/*splat", (req, res) => {
+    res.sendFile(path.join(webuiDistPath, "index.html"));
+  });
+
+  logger.debug("React WebUI static files served from /dashboard", {
+    ...transportContext,
+    webuiDistPath,
+  });
 
   app.post(MCP_ENDPOINT_PATH, async (req, res) => {
     const basePostContext = requestContextService.createRequestContext({

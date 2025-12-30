@@ -37,7 +37,10 @@ const shutdown = async (signal: string) => {
   try {
     if (serverInstance) {
       if (serverInstance instanceof McpServer) {
-        logger.info("Closing main MCP server (stdio) instance...", shutdownContext);
+        logger.info(
+          "Closing main MCP server (stdio) instance...",
+          shutdownContext,
+        );
         await serverInstance.close();
         logger.info(
           "Main MCP server (stdio) instance closed successfully.",
@@ -52,7 +55,10 @@ const shutdown = async (signal: string) => {
               logger.error("Error closing HTTP server", err, shutdownContext);
               return reject(err);
             }
-            logger.info("HTTP server instance closed successfully.", shutdownContext);
+            logger.info(
+              "HTTP server instance closed successfully.",
+              shutdownContext,
+            );
             resolve();
           });
         });
@@ -156,19 +162,21 @@ const start = async () => {
         "Stored McpServer instance for stdio transport.",
         startupContext,
       );
-    } else if (transportType === "http" && potentialServer instanceof http.Server) {
+    } else if (
+      transportType === "http" &&
+      potentialServer instanceof http.Server
+    ) {
       serverInstance = potentialServer;
       logger.debug(
         "Stored HTTP server instance. MCP sessions are per-request.",
         startupContext,
       );
     } else if (transportType === "http" && !potentialServer) {
-        logger.debug(
-            "HTTP transport started. Server instance not returned by initializeAndStartServer. MCP sessions are per-request.",
-            startupContext,
-        );
+      logger.debug(
+        "HTTP transport started. Server instance not returned by initializeAndStartServer. MCP sessions are per-request.",
+        startupContext,
+      );
     }
-
 
     logger.info(
       `${config.mcpServerName} is running with ${transportType} transport.`,
