@@ -90,14 +90,22 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
 
   try {
     const sortByParam = (req.query.sortBy as string) || "updatedAt";
+    const page = parseIntParam(req.query.page as string, 1, 1, 1000);
+    const limit = parseIntParam(req.query.limit as string, 20, 1, 100);
+    const createdAfter = req.query.createdAfter as string | undefined;
+    const createdBefore = req.query.createdBefore as string | undefined;
+    const hasDateFilter = !!(createdAfter || createdBefore);
+
     const params: ListProjectsParams = {
-      page: parseIntParam(req.query.page as string, 1, 1, 1000),
-      limit: parseIntParam(req.query.limit as string, 20, 1, 100),
+      page,
+      limit,
       sortBy: sortByParam as ListProjectsParams["sortBy"],
       sortDirection: (req.query.sortDirection as "asc" | "desc") || "desc",
       status: req.query.status as string,
       taskType: req.query.taskType as string,
       search: req.query.search as string,
+      createdAfter,
+      createdBefore,
       includeStats: parseBoolParam(req.query.includeStats as string),
     };
 
@@ -105,16 +113,57 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
     const statusArray = parseArrayParam(params.status);
 
     // Get projects from service
-    const result = await ProjectService.getProjects({
-      page: params.page,
-      limit: params.limit,
-      sortBy: params.sortBy as "name" | "status" | "taskType" | "createdAt" | "updatedAt",
-      status: statusArray.length === 1 ? (statusArray[0] as "active" | "pending" | "in-progress" | "completed" | "archived") : undefined,
-      taskType: params.taskType,
-    });
+    // When date filters are active, fetch ALL pages to filter properly (service caps at 100/page)
+    type ProjectResult = Awaited<ReturnType<typeof ProjectService.getProjects>>;
+    type ProjectData = ProjectResult["data"];
+    let allData: ProjectData = [];
+    let result: ProjectResult;
+
+    if (hasDateFilter) {
+      // Fetch all pages when date filtering
+      let currentPage = 1;
+      do {
+        result = await ProjectService.getProjects({
+          page: currentPage,
+          limit: 100,
+          sortBy: params.sortBy as "name" | "status" | "taskType" | "createdAt" | "updatedAt",
+          status: statusArray.length === 1 ? (statusArray[0] as "active" | "pending" | "in-progress" | "completed" | "archived") : undefined,
+          taskType: params.taskType,
+        });
+        allData = allData.concat(result.data);
+        currentPage++;
+      } while (currentPage <= result.totalPages);
+    } else {
+      result = await ProjectService.getProjects({
+        page,
+        limit,
+        sortBy: params.sortBy as "name" | "status" | "taskType" | "createdAt" | "updatedAt",
+        status: statusArray.length === 1 ? (statusArray[0] as "active" | "pending" | "in-progress" | "completed" | "archived") : undefined,
+        taskType: params.taskType,
+      });
+      allData = result.data;
+    }
+
+    // Apply date filters (client-side since service doesn't support it)
+    let filteredData = allData;
+    if (createdAfter) {
+      const afterDate = new Date(createdAfter).getTime();
+      filteredData = filteredData.filter((p) => new Date(p.createdAt).getTime() >= afterDate);
+    }
+    if (createdBefore) {
+      const beforeDate = new Date(createdBefore).getTime();
+      filteredData = filteredData.filter((p) => new Date(p.createdAt).getTime() <= beforeDate);
+    }
+
+    // Apply client-side pagination when date filters are active
+    const totalFiltered = filteredData.length;
+    if (hasDateFilter) {
+      const startIndex = (page - 1) * limit;
+      filteredData = filteredData.slice(startIndex, startIndex + limit);
+    }
 
     // Transform to response format
-    let projects: ProjectSummary[] = result.data.map((p) => ({
+    let projects: ProjectSummary[] = filteredData.map((p) => ({
       id: p.id,
       name: p.name,
       description: p.description,
@@ -138,17 +187,17 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
     const response: ListProjectsResponse = {
       projects,
       pagination: {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
+        page,
+        limit,
+        total: hasDateFilter ? totalFiltered : result.total,
+        totalPages: hasDateFilter ? Math.ceil(totalFiltered / limit) : result.totalPages,
       },
     };
 
     logger.debug("WebUI API: List projects success", {
       ...context,
       count: projects.length,
-      total: result.total,
+      total: hasDateFilter ? totalFiltered : result.total,
     });
     res.json(response);
   } catch (error) {

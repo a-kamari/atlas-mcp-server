@@ -2,9 +2,18 @@ import { useProjectDetail } from "@/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { X, ExternalLink, CheckCircle2, Circle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TaskList } from "./TaskList";
+import { KnowledgeList } from "./KnowledgeList";
+import {
+  X,
+  FileText,
+  ListTodo,
+  BookOpen,
+  AlertCircle,
+} from "lucide-react";
 import type { ProjectStatus } from "@/types";
-import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface ProjectDetailSheetProps {
   projectId: string | null;
@@ -12,145 +21,90 @@ interface ProjectDetailSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function ProjectDetailSheet({
-  projectId,
-  open,
-  onOpenChange,
-}: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDetailSheetProps) {
   const { data, isLoading } = useProjectDetail(projectId);
-
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="fixed right-0 top-0 h-full w-full max-w-2xl border-l bg-background shadow-lg overflow-y-auto">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-6">
-          <h2 className="text-2xl font-bold">Project Details</h2>
-          <button
-            onClick={() => onOpenChange(false)}
-            className="rounded-md p-2 hover:bg-muted"
-          >
+      <div className={cn("fixed right-0 top-0 h-full w-full max-w-3xl", "border-l border-border/50 bg-background shadow-2xl", "overflow-hidden flex flex-col")}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/50 bg-card/95 backdrop-blur-sm px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="h-on w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText className="h-on w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Project Details</h2>
+              <p className="text-xs text-muted-foreground">View project info, tasks, and knowledge</p>
+            </div>
+          </div>
+          <button onClick={() => onOpenChange(false)} className="rounded-md p-2 hover:bg-muted">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {isLoading ? (
-          <div className="p-6 space-y-6">
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-32 w-full" />
+          <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+            <Skeleton className="h-on w-3/4" />
+            <Skeleton className="h-on w-full" />
           </div>
         ) : data?.project ? (
-          <div className="p-6 space-y-6">
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-2">
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-border/30 bg-card/30">
+              <div className="flex items-start justify-between gap-4 mb-3">
                 <h3 className="text-xl font-semibold">{data.project.name}</h3>
-                <Badge variant={data.project.status as ProjectStatus}>
-                  {data.project.status}
-                </Badge>
+                <Badge variant={data.project.status as ProjectStatus}>{data.project.status}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {data.project.taskType}
-              </p>
+              <p className="text-sm text-muted-foreground capitalize">{data.project.taskType}</p>
             </div>
 
-            <div>
-              <h4 className="text-sm font-medium mb-2">Description</h4>
-              <p className="text-sm text-muted-foreground">
-                {data.project.description}
-              </p>
-            </div>
+            <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-6 pt-4 border-b border-border/30">
+                <TabsList className="bg-muted/50">
+                  <TabsTrigger value="overview" className="gap-1.5">
+                    <FileText className="h-4 w-4" />Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="tasks" className="gap-1.5">
+                    <ListTodo className="h-on w-4" />Tasks
+                    {data.tasks?.length ? <span className="ml-1 text-xs bg-muted rounded-full px-1.5">{data.tasks.length}</span> : null}
+                  </TabsTrigger>
+                  <TabsTrigger value="knowledge" className="gap-1.5">
+                    <BookOpen className="h-4 w-4" />Knowledge
+                    {data.knowledge?.length ? <span className="ml-1 text-xs bg-muted rounded-full px-1.5">{data.knowledge.length}</span> : null}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-            {data.project.stats && (
-              <div>
-                <h4 className="text-sm font-medium mb-2">Progress</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Task Completion
-                    </span>
-                    <span className="font-medium">
-                      {data.project.stats.completedTasks}/
-                      {data.project.stats.totalTasks}
-                    </span>
+              <div className="flex-1 overflow-y-auto">
+                <TabsContent value="overview" className="p-6 space-y-6 m-0">
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Description</h4>
+                    <p className="text-sm text-muted-foreground">{data.project.description}</p>
                   </div>
-                  <Progress value={data.project.stats.completionPercentage} />
-                </div>
-              </div>
-            )}
-
-            {data.tasks && data.tasks.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium mb-3">
-                  Tasks ({data.tasks.length})
-                </h4>
-                <div className="space-y-2">
-                  {data.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-start gap-3 rounded-lg border p-3"
-                    >
-                      {task.status === "completed" ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-muted-foreground mt-0.5" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{task.title}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                          {task.description}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline" className="text-xs">
-                            {task.status}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {task.priority}
-                          </Badge>
-                        </div>
-                      </div>
+                  {data.project.stats && (
+                    <div className="mission-card p-4 rounded-lg">
+                      <h4 className="text-sm font-medium mb-2">Progress</h4>
+                      <Progress value={data.project.stats.completionPercentage} />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {data.project.stats.completedTasks}/{data.project.stats.totalTasks} tasks
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="tasks" className="p-6 m-0">
+                  <TaskList tasks={data.tasks || []} />
+                </TabsContent>
+                <TabsContent value="knowledge" className="p-6 m-0">
+                  <KnowledgeList knowledge={data.knowledge || []} />
+                </TabsContent>
               </div>
-            )}
-
-            {data.project.urls && data.project.urls.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium mb-2">Resources</h4>
-                <div className="space-y-2">
-                  {data.project.urls.map((url, idx) => (
-                    <a
-                      key={idx}
-                      href={url.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:underline"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      {url.title}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="text-xs text-muted-foreground pt-4 border-t">
-              <div>
-                Created{" "}
-                {formatDistanceToNow(new Date(data.project.createdAt), {
-                  addSuffix: true,
-                })}
-              </div>
-              <div>
-                Updated{" "}
-                {formatDistanceToNow(new Date(data.project.updatedAt), {
-                  addSuffix: true,
-                })}
-              </div>
-            </div>
+            </Tabs>
           </div>
-        ) : null}
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <AlertCircle className="h-on w-12 text-muted-foreground/30" />
+          </div>
+        )}
       </div>
     </div>
   );

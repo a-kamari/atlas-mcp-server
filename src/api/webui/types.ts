@@ -28,6 +28,10 @@ export interface ListProjectsParams {
   taskType?: string;
   /** Search term for name/description */
   search?: string;
+  /** Filter by creation date - after this ISO date string */
+  createdAfter?: string;
+  /** Filter by creation date - before this ISO date string */
+  createdBefore?: string;
   /** Include task statistics */
   includeStats?: boolean;
 }
@@ -68,6 +72,10 @@ export interface ListKnowledgeParams {
   tags?: string;
   /** Search term for text content */
   search?: string;
+  /** Filter by creation date - after this ISO date string */
+  createdAfter?: string;
+  /** Filter by creation date - before this ISO date string */
+  createdBefore?: string;
 }
 
 // ============================================================================
