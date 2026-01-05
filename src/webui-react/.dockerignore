@@ -1,0 +1,33 @@
+# Dependencies
+node_modules
+
+# Build output (built inside Docker)
+dist
+
+# Development files
+*.log
+*.local
+.env*
+!.env.example
+
+# IDE/Editor
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+coverage

@@ -23,6 +23,27 @@ services:
       - neo4j_data:/data
       - neo4j_logs:/logs
       - neo4j_import:/var/lib/neo4j/import
+
+  # WebUI - React Dashboard served via nginx
+  webui:
+    build:
+      context: ./src/webui-react
+      dockerfile: Dockerfile
+    container_name: atlas-webui
+    ports:
+      # Bind to localhost only for security (local desktop use)
+      - "127.0.0.1:8080:80"
+    # Enable access to host machine for API proxy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/dashboard/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
 volumes:
   neo4j_data:
   neo4j_logs:
